@@ -1,22 +1,18 @@
-#include <stdio.h>
+#include <iostream>
 
-#include <pico/stdlib.h>
-#include <pico/binary_info.h>
+#include "intel_hex.h"
 
-#include "led.h"
+void writer (std::string_view s){
+    std::cout << s << std::endl;
+}
+
+std::uint8_t peek(std::uint16_t addr){
+    return addr;
+}
 
 int main() {
-	bi_decl(bi_program_description("template raspberry pi pico/w c++ project"));
 
-	stdio_init_all();
+    intel_hex::write_data(writer, peek, 0x1000, 256);
+    intel_hex::write_end(writer);
 
-	init_led();
-	uint32_t count = 1;
-
-	while (true) {
-		set_led(count & 1);
-		printf("%d\n", count);
-		sleep_ms(100);
-		count++;
-	}
 }
