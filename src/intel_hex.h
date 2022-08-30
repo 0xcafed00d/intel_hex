@@ -12,6 +12,17 @@
 // memReader -> std::uint8_t peek(std::unit16_t address)
 // memWriter -> void poke(std::unit16_t address, std::uint8_t val)
 
+// intel hex format:
+// :LLAAAATTDD..DDCC
+// LL   = length data
+// AAAA = 16bit address
+// TT   = record type
+//		  00 = data record
+//        01 = end of file record
+//        currently all other record types are not supported.
+// DD   = Data bytes
+// CC   = 8 bit checksum: 2's complement of 8bit sum of all record bytes
+
 namespace intel_hex {
 	namespace helpers {
 
@@ -89,15 +100,24 @@ namespace intel_hex {
 			buffer[2] = 0;
 
 			if (!std::isxdigit(buffer[0]) || !std::isxdigit(buffer[1])) {
-				// throw error
+				return false;
 			}
 
 			val = strtol(buffer, std::nullptr_t, 16);
+			return true;
 		}
 	}  // namespace helpers
 
 	template <typename fileReader, typename memWriter>
-	void read(fileReader& r, memWriter& w) {
+	bool read_line(fileReader& r, memWriter& w) {
+		char c = r();
+		if (c != ':') {
+			return false;
+		}
+	}
+
+	template <typename fileReader, typename memWriter>
+	bool read(fileReader& r, memWriter& w) {
 		using namespace helpers;
 
 		static_assert(std::is_invocable_r_v<char, fileReader>,
