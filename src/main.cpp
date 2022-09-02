@@ -1,7 +1,7 @@
 #include <iostream>
 #include <string_view>
 
-#include "intel_hex.h"
+#include "intel_hex20.h"
 
 void writer(std::string_view s) {
 	std::cout << s;
