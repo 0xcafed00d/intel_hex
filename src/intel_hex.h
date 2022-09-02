@@ -1,5 +1,5 @@
-#ifndef BC45DBCC_061E_4977_B2B2_0C1D57025446
-#define BC45DBCC_061E_4977_B2B2_0C1D57025446
+#ifndef INTEL_HEX_H_0xCAFED00D
+#define INTEL_HEX_H_0xCAFED00D
 
 #include <algorithm>
 #include <cctype>
@@ -93,7 +93,7 @@ namespace intel_hex {
 	// ---------------------------------------------------------------------------------------
 	namespace helpers {
 		template <typename fileReader>
-		bool read_byte(fileReader& r, std::uint8_t& val) {
+		bool read_byte(fileReader& r, std::uint8_t& val, std::uint8_t& chk_tot) {
 			char buffer[3];
 			buffer[0] = r();
 			buffer[1] = r();
@@ -103,17 +103,54 @@ namespace intel_hex {
 				return false;
 			}
 
-			val = strtol(buffer, std::nullptr_t, 16);
+			val = strtol(buffer, nullptr, 16);
+			chk_tot += val;
 			return true;
+		}
+
+		template <typename fileReader>
+		bool read_16bit(fileReader& r, std::uint16_t& val, std::uint8_t& chk_tot) {
+			std::uint8_t hi, lo;
+			bool ok = true;
+			ok &= read_byte(r, hi, chk_tot);
+			ok &= read_byte(r, lo, chk_tot);
+			val = std::uint16_t(hi) << 8 | lo;
+			return ok;
 		}
 	}  // namespace helpers
 
 	template <typename fileReader, typename memWriter>
-	bool read_line(fileReader& r, memWriter& w) {
+	bool read_line(fileReader& r, memWriter& w, bool& endrecord) {
+		using namespace helpers;
 		char c = r();
+		while (std::isspace(c)) {  // skip past any white space
+			c = r();
+		}
+
 		if (c != ':') {
 			return false;
 		}
+
+		std::uint8_t chk_tot = 0;
+		std::uint8_t len, type, data, check;
+		std::uint16_t addr;
+
+		bool ok = true;
+		ok &= read_byte(r, len, chk_tot);
+		ok &= read_16bit(r, addr, chk_tot);
+		ok &= read_byte(r, type, chk_tot);
+		ok &= (type == 0) || (type == 1);
+
+		while (len-- && ok) {
+			ok &= read_byte(r, data, chk_tot);
+			w(addr++, data);
+		}
+		ok &= read_byte(r, check, chk_tot);
+		ok &= (chk_tot == 0);
+
+		endrecord = (type == 1);
+
+		return ok;
 	}
 
 	template <typename fileReader, typename memWriter>
@@ -127,8 +164,16 @@ namespace intel_hex {
 		static_assert(std::is_invocable_v<memWriter, std::uint16_t, std::uint8_t>,
 		              "memReader must be invocable as: "
 		              "void memWriter(std::uint16_t address, std::uint8_t val)");
+
+		bool endrecord = false;
+		bool ok = true;
+
+		while (ok) {
+			ok &= read_line(r, w, endrecord);
+		}
+		return ok;
 	}
 
 }  // namespace intel_hex
 
-#endif /* BC45DBCC_061E_4977_B2B2_0C1D57025446 */
+#endif /* INTEL_HEX_H_0xCAFED00D */
